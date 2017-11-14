@@ -22,6 +22,7 @@
 
 package io.crate.operation.user;
 
+import com.google.common.collect.ImmutableSet;
 import io.crate.analyze.user.Privilege;
 import io.crate.user.SecureHash;
 
@@ -35,16 +36,24 @@ public class User {
         SUPERUSER
     }
 
-    private final Set<Role> roles;
-
     private final String name;
-
+    private final Set<Role> roles;
     private final UserPrivileges privileges;
+    private final SecureHash password;
 
-    public User(String name, Set<Role> roles, Set<Privilege> privileges) {
+    private User(String name, Set<Role> roles, Set<Privilege> privileges, SecureHash password) {
         this.roles = roles;
         this.name = name;
         this.privileges = new UserPrivileges(privileges);
+        this.password = password;
+    }
+
+    public User(String name, Set<Role> roles, Set<Privilege> privileges) {
+        this(name, roles, privileges, null);
+    }
+
+    public static User newInstance(String name, Set<Privilege> privileges, SecureHash password) {
+        return new User(name, ImmutableSet.of(), privileges, password);
     }
 
     public String name() {
@@ -53,7 +62,7 @@ public class User {
 
     @Nullable
     public SecureHash password() {
-        return null;
+        return password;
     }
 
     @SuppressWarnings("WeakerAccess")
