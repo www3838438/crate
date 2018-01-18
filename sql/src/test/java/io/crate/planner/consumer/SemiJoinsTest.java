@@ -36,6 +36,7 @@ import io.crate.sql.tree.QualifiedName;
 import io.crate.test.integration.CrateDummyClusterServiceUnitTest;
 import io.crate.testing.SQLExecutor;
 import io.crate.testing.T3;
+import io.crate.testing.TestingHelpers;
 import org.junit.Before;
 import org.junit.Test;
 

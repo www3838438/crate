@@ -21,12 +21,17 @@
 
 package io.crate.analyze.relations;
 
+import io.crate.analyze.EvaluatingNormalizer;
 import io.crate.analyze.QueriedTableRelation;
 import io.crate.analyze.QuerySpec;
+import io.crate.analyze.WhereClause;
 import io.crate.analyze.where.WhereClauseAnalyzer;
+import io.crate.analyze.where.WhereClauseValidator;
 import io.crate.metadata.Functions;
 import io.crate.metadata.Path;
 import io.crate.metadata.TransactionContext;
+import io.crate.metadata.doc.DocTableInfo;
+import io.crate.planner.WhereClauseOptimizer;
 
 import java.util.Collection;
 
@@ -49,6 +54,21 @@ public class QueriedDocTable extends QueriedTableRelation<DocTableRelation> {
         if (querySpec().where().hasQuery()) {
             WhereClauseAnalyzer whereClauseAnalyzer = new WhereClauseAnalyzer(functions, tableRelation());
             querySpec().where(whereClauseAnalyzer.analyze(querySpec().where().query(), transactionContext));
+        }
+    }
+
+    void optimizeWhereClause(EvaluatingNormalizer normalizer, TransactionContext transactionContext) {
+        DocTableInfo tableInfo = tableRelation.tableInfo;
+        if (querySpec().where().hasQuery()) {
+            WhereClauseOptimizer.DetailedQuery detailedQuery = WhereClauseOptimizer.optimize(
+                normalizer, querySpec().where().query(), tableInfo, transactionContext);
+            WhereClauseValidator.validate(detailedQuery.query());
+            querySpec().where(
+                new WhereClause(
+                    detailedQuery.query(),
+                    detailedQuery.docKeys().orElse(null),
+                    querySpec().where().partitions(),
+                    detailedQuery.clusteredBy()));
         }
     }
 }

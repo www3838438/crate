@@ -90,7 +90,8 @@ public final class RelationNormalizer {
         @Override
         public AnalyzedRelation visitQueriedDocTable(QueriedDocTable table, TransactionContext context) {
             table.normalize(functions, context);
-            table.analyzeWhereClause(functions, context);
+            //table.analyzeWhereClause(functions, context);
+            table.optimizeWhereClause(normalizer, context);
             return table;
         }
 
