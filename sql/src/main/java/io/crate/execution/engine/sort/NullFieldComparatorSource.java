@@ -28,6 +28,7 @@ import org.apache.lucene.search.LeafFieldComparator;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.SortField;
 import org.elasticsearch.index.fielddata.IndexFieldData;
+import org.elasticsearch.search.MultiValueMode;
 
 import java.io.IOException;
 
@@ -66,6 +67,7 @@ class NullFieldComparatorSource extends IndexFieldData.XFieldComparatorSource {
     };
 
     NullFieldComparatorSource(SortField.Type sortFieldType, boolean reversed, Boolean nullsFirst) {
+        super(null, MultiValueMode.MAX, null);
         this.sortFieldType = sortFieldType;
         missingValue = missingObject(SortOrder.missing(reversed, nullsFirst), reversed);
     }
