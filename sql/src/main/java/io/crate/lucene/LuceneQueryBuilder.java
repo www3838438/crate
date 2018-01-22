@@ -43,19 +43,9 @@ import io.crate.analyze.symbol.format.SymbolPrinter;
 import io.crate.data.Input;
 import io.crate.exceptions.UnsupportedFeatureException;
 import io.crate.exceptions.VersionInvalidException;
-import io.crate.geo.GeoJSONUtils;
-import io.crate.lucene.match.CrateRegexCapabilities;
-import io.crate.lucene.match.CrateRegexQuery;
-import io.crate.lucene.match.MatchQueries;
-import io.crate.metadata.DocReferences;
-import io.crate.metadata.FunctionInfo;
-import io.crate.metadata.Functions;
-import io.crate.metadata.Reference;
-import io.crate.metadata.doc.DocSysColumns;
-import io.crate.metadata.table.ColumnPolicy;
-import io.crate.execution.expression.InputFactory;
 import io.crate.execution.engine.collect.DocInputFactory;
 import io.crate.execution.engine.collect.collectors.CollectorFieldsVisitor;
+import io.crate.execution.expression.InputFactory;
 import io.crate.execution.expression.operator.AndOperator;
 import io.crate.execution.expression.operator.EqOperator;
 import io.crate.execution.expression.operator.GtOperator;
@@ -84,6 +74,16 @@ import io.crate.execution.expression.reference.doc.lucene.LuceneReferenceResolve
 import io.crate.execution.expression.scalar.conditional.CoalesceFunction;
 import io.crate.execution.expression.scalar.geo.DistanceFunction;
 import io.crate.execution.expression.scalar.geo.WithinFunction;
+import io.crate.geo.GeoJSONUtils;
+import io.crate.lucene.match.CrateRegexCapabilities;
+import io.crate.lucene.match.CrateRegexQuery;
+import io.crate.lucene.match.MatchQueries;
+import io.crate.metadata.DocReferences;
+import io.crate.metadata.FunctionInfo;
+import io.crate.metadata.Functions;
+import io.crate.metadata.Reference;
+import io.crate.metadata.doc.DocSysColumns;
+import io.crate.metadata.table.ColumnPolicy;
 import io.crate.types.ArrayType;
 import io.crate.types.CollectionType;
 import io.crate.types.DataType;
@@ -114,7 +114,6 @@ import org.elasticsearch.common.lucene.BytesRefs;
 import org.elasticsearch.common.lucene.search.Queries;
 import org.elasticsearch.index.cache.IndexCache;
 import org.elasticsearch.index.fielddata.IndexFieldDataService;
-import org.elasticsearch.index.mapper.BaseGeoPointFieldMapper;
 import org.elasticsearch.index.mapper.GeoPointFieldMapper;
 import org.elasticsearch.index.mapper.GeoShapeFieldMapper;
 import org.elasticsearch.index.mapper.MappedFieldType;
@@ -143,8 +142,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static io.crate.lucene.DistanceQueries.esV5DistanceQuery;
 import static io.crate.execution.expression.scalar.regex.RegexMatcher.isPcrePattern;
+import static io.crate.lucene.DistanceQueries.esV5DistanceQuery;
 
 
 @Singleton
@@ -1057,7 +1056,7 @@ public class LuceneQueryBuilder {
             }
 
             private static Query getPolygonQuery(Geometry geometry,
-                                                 BaseGeoPointFieldMapper.GeoPointFieldType fieldType) {
+                                                 GeoPointFieldMapper.GeoPointFieldType fieldType) {
                 Coordinate[] coordinates = geometry.getCoordinates();
                 // close the polygon shape if startpoint != endpoint
                 if (!CoordinateArrays.isRing(coordinates)) {
@@ -1115,7 +1114,7 @@ public class LuceneQueryBuilder {
             }
         }
 
-        private static BaseGeoPointFieldMapper.GeoPointFieldType getGeoPointFieldType(String fieldName, MapperService mapperService) {
+        private static GeoPointFieldMapper.GeoPointFieldType getGeoPointFieldType(String fieldName, MapperService mapperService) {
             MappedFieldType fieldType = mapperService.fullName(fieldName);
             if (fieldType == null) {
                 throw new IllegalArgumentException(String.format(Locale.ENGLISH, "column \"%s\" doesn't exist", fieldName));
