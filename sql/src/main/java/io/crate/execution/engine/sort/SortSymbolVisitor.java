@@ -29,14 +29,14 @@ import io.crate.analyze.symbol.Symbol;
 import io.crate.analyze.symbol.SymbolVisitor;
 import io.crate.analyze.symbol.format.SymbolFormatter;
 import io.crate.data.Input;
+import io.crate.execution.engine.collect.DocInputFactory;
+import io.crate.execution.expression.InputFactory;
+import io.crate.execution.expression.reference.doc.lucene.CollectorContext;
+import io.crate.execution.expression.reference.doc.lucene.LuceneCollectorExpression;
 import io.crate.lucene.FieldTypeLookup;
 import io.crate.metadata.ColumnIdent;
 import io.crate.metadata.Reference;
 import io.crate.metadata.doc.DocSysColumns;
-import io.crate.execution.expression.InputFactory;
-import io.crate.execution.engine.collect.DocInputFactory;
-import io.crate.execution.expression.reference.doc.lucene.CollectorContext;
-import io.crate.execution.expression.reference.doc.lucene.LuceneCollectorExpression;
 import io.crate.types.DataType;
 import io.crate.types.DataTypes;
 import io.crate.types.DoubleType;
@@ -159,8 +159,7 @@ public class SortSymbolVisitor extends SymbolVisitor<SortSymbolVisitor.SortSymbo
                 fieldComparatorSource,
                 context.reverseFlag);
         } else {
-            return context.context.fieldData()
-                .getForField(fieldType)
+            return context.context.getFieldData(fieldType)
                 .sortField(SortOrder.missing(context.reverseFlag, context.nullFirst),
                     sortMode, null, context.reverseFlag);
         }
@@ -191,7 +190,10 @@ public class SortSymbolVisitor extends SymbolVisitor<SortSymbolVisitor.SortSymbo
         final Input input = inputContext.add(symbol);
         final Collection<? extends LuceneCollectorExpression<?>> expressions = inputContext.expressions();
 
-        return new SortField(name, new IndexFieldData.XFieldComparatorSource() {
+        Object missingValue = SortSymbolVisitor.missingObject(
+            symbol.valueType(), SortOrder.missing(context.reverseFlag, context.nullFirst), context.reverseFlag);
+
+        return new SortField(name, new IndexFieldData.XFieldComparatorSource(missingValue, MultiValueMode.MAX, null) {
             @Override
             public FieldComparator<?> newComparator(String fieldName, int numHits, int sortPos, boolean reversed) {
                 for (LuceneCollectorExpression collectorExpression : expressions) {
