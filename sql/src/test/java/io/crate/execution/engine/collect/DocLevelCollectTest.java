@@ -22,8 +22,6 @@
 package io.crate.execution.engine.collect;
 
 import com.google.common.collect.ImmutableList;
-import io.crate.execution.jobs.ContextPreparer;
-import io.crate.execution.jobs.SharedShardContexts;
 import io.crate.action.sql.SessionContext;
 import io.crate.analyze.WhereClause;
 import io.crate.analyze.symbol.Function;
@@ -31,9 +29,15 @@ import io.crate.analyze.symbol.Literal;
 import io.crate.analyze.symbol.Symbol;
 import io.crate.data.Bucket;
 import io.crate.data.Row;
-import io.crate.integrationtests.SQLTransportIntegrationTest;
+import io.crate.execution.dsl.phases.ExecutionPhase;
+import io.crate.execution.dsl.phases.NodeOperation;
+import io.crate.execution.dsl.phases.RoutedCollectPhase;
+import io.crate.execution.expression.operator.EqOperator;
+import io.crate.execution.jobs.ContextPreparer;
 import io.crate.execution.jobs.JobContextService;
 import io.crate.execution.jobs.JobExecutionContext;
+import io.crate.execution.jobs.SharedShardContexts;
+import io.crate.integrationtests.SQLTransportIntegrationTest;
 import io.crate.metadata.Functions;
 import io.crate.metadata.Reference;
 import io.crate.metadata.ReferenceIdent;
@@ -42,11 +46,7 @@ import io.crate.metadata.RoutingProvider;
 import io.crate.metadata.RowGranularity;
 import io.crate.metadata.Schemas;
 import io.crate.metadata.TableIdent;
-import io.crate.execution.dsl.phases.NodeOperation;
-import io.crate.execution.expression.operator.EqOperator;
 import io.crate.planner.distribution.DistributionInfo;
-import io.crate.execution.dsl.phases.ExecutionPhase;
-import io.crate.execution.dsl.phases.RoutedCollectPhase;
 import io.crate.testing.UseRandomizedSession;
 import io.crate.types.DataTypes;
 import org.elasticsearch.cluster.routing.ShardRouting;
@@ -74,7 +74,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.mockito.Mockito.mock;
 
 
-@ESIntegTestCase.ClusterScope(randomDynamicTemplates = false, numDataNodes = 1)
+@ESIntegTestCase.ClusterScope(numDataNodes = 1)
 @UseRandomizedSession(schema = false)
 public class DocLevelCollectTest extends SQLTransportIntegrationTest {
 
