@@ -34,19 +34,25 @@ import io.crate.blob.v2.BlobShard;
 import io.crate.common.Hex;
 import io.crate.test.utils.Blobs;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
+import org.elasticsearch.action.admin.cluster.reroute.ClusterRerouteResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.metadata.IndexMetaData;
+import org.elasticsearch.cluster.routing.allocation.RerouteExplanation;
 import org.elasticsearch.cluster.routing.allocation.command.MoveAllocationCommand;
+import org.elasticsearch.cluster.routing.allocation.decider.Decision;
 import org.elasticsearch.common.Priority;
 import org.elasticsearch.common.bytes.BytesArray;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.index.shard.ShardNotFoundException;
 import org.elasticsearch.test.ESIntegTestCase;
+import org.elasticsearch.test.junit.annotations.TestLogging;
 import org.junit.Test;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -54,9 +60,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.core.IsEqual.equalTo;
 
 @ESIntegTestCase.ClusterScope(scope = ESIntegTestCase.Scope.SUITE, numDataNodes = 0, numClientNodes = 0, transportClientRatio = 0)
 @ThreadLeakFilters(filters = {RecoveryTests.RecoveryTestThreadFilter.class})
@@ -132,6 +137,7 @@ public class RecoveryTests extends BlobIntegrationTestBase {
     }
 
     @Test
+    @TestLogging("io.crate:TRACE")
     public void testPrimaryRelocationWhileIndexing() throws Exception {
         final int numberOfRelocations = 1;
         final int numberOfWriters = 2;
@@ -194,7 +200,17 @@ public class RecoveryTests extends BlobIntegrationTestBase {
         while (uploadedDigests.size() < 2) {
             Thread.sleep(10);
         }
-        logger.trace("--> 2 blobs uploaded");
+        /*
+        stop.set(true);
+        for (Thread writer : writers) {
+            writer.join(6000);
+        }
+        List<String> foundDigests = tryToLocateDigests(node1, node2, uploadedDigests);
+        foundDigests.sort(Comparator.naturalOrder());
+        uploadedDigests.sort(Comparator.naturalOrder());
+        assertThat(foundDigests, equalTo(uploadedDigests));
+        */
+        logger.trace("--> 20 blobs uploaded");
 
         // increase time between chunks in order to make sure that the upload is taking place while relocating
         timeBetweenChunks.set(10);
@@ -204,9 +220,16 @@ public class RecoveryTests extends BlobIntegrationTestBase {
             String fromNode = (i % 2 == 0) ? node1 : node2;
             String toNode = node1.equals(fromNode) ? node2 : node1;
             logger.trace("--> START relocate the shard from {} to {}", fromNode, toNode);
-            internalCluster().client(node1).admin().cluster().prepareReroute()
+            ClusterRerouteResponse response = internalCluster().client(node1).admin().cluster().prepareReroute()
                 .add(new MoveAllocationCommand(BlobIndex.fullIndexName("test"), 0, fromNode, toNode))
-                .execute().actionGet();
+                .execute()
+                .actionGet();
+            for (RerouteExplanation rerouteExplanation : response.getExplanations().explanations()) {
+                System.out.println("## " + rerouteExplanation.command().name());
+                for (Decision decision : rerouteExplanation.decisions().getDecisions()) {
+                    System.out.println("## " + decision);
+                }
+            }
             ClusterHealthResponse clusterHealthResponse = internalCluster().client(node1).admin().cluster()
                 .prepareHealth()
                 .setWaitForEvents(Priority.LANGUID)
@@ -233,15 +256,40 @@ public class RecoveryTests extends BlobIntegrationTestBase {
         logger.trace("--> expected {} got {}", indexCounter.get(), uploadedDigests.size());
         assertEquals(indexCounter.get(), uploadedDigests.size());
 
-        BlobIndicesService blobIndicesService = internalCluster().getInstance(BlobIndicesService.class, node2);
-        for (String digest : uploadedDigests) {
-            BlobShard blobShard = blobIndicesService.localBlobShard(BlobIndex.fullIndexName("test"), digest);
-            long length = blobShard.blobContainer().getFile(digest).length();
-            assertThat(length, greaterThanOrEqualTo(1L));
-        }
+        List<String> foundDigests = tryToLocateDigests(node1, node2, uploadedDigests);
+        foundDigests.sort(Comparator.naturalOrder());
+        uploadedDigests.sort(Comparator.naturalOrder());
+        assertThat(foundDigests, equalTo(uploadedDigests));
 
         for (Thread writer : writers) {
             writer.join(6000);
         }
+    }
+
+    private List<String> tryToLocateDigests(String node1, String node2, List<String> uploadedDigests) {
+        List<String> foundDigests = new ArrayList<>();
+        BlobIndicesService blobIndicesService = internalCluster().getInstance(BlobIndicesService.class, node2);
+        for (String digest : uploadedDigests) {
+            try {
+                BlobShard blobShard = blobIndicesService.localBlobShard(BlobIndex.fullIndexName("test"), digest);
+                long length = blobShard.blobContainer().getFile(digest).length();
+                if (length > 0) {
+                    foundDigests.add(digest);
+                }
+            } catch (ShardNotFoundException ignored) {
+            }
+        }
+        blobIndicesService = internalCluster().getInstance(BlobIndicesService.class, node1);
+        for (String digest : uploadedDigests) {
+            try {
+                BlobShard blobShard = blobIndicesService.localBlobShard(BlobIndex.fullIndexName("test"), digest);
+                long length = blobShard.blobContainer().getFile(digest).length();
+                if (length > 0) {
+                    foundDigests.add(digest);
+                }
+            } catch (ShardNotFoundException ignored) {
+            }
+        }
+        return foundDigests;
     }
 }

@@ -24,6 +24,7 @@ package io.crate.blob;
 import org.elasticsearch.action.support.ActionFilters;
 import org.elasticsearch.action.support.replication.TransportReplicationAction;
 import org.elasticsearch.cluster.action.shard.ShardStateAction;
+import org.elasticsearch.cluster.block.ClusterBlockLevel;
 import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.cluster.routing.ShardIterator;
@@ -51,7 +52,7 @@ public class TransportPutChunkAction extends TransportReplicationAction<PutChunk
                                    IndexNameExpressionResolver indexNameExpressionResolver) {
         super(settings, PutChunkAction.NAME, transportService, clusterService,
             indicesService, threadPool, shardStateAction, actionFilters,
-            indexNameExpressionResolver, PutChunkRequest::new, PutChunkReplicaRequest::new, ThreadPool.Names.INDEX);
+            indexNameExpressionResolver, PutChunkRequest::new, PutChunkReplicaRequest::new, ThreadPool.Names.INDEX, true);
 
         this.transferTarget = transferTarget;
     }
@@ -59,6 +60,17 @@ public class TransportPutChunkAction extends TransportReplicationAction<PutChunk
     @Override
     protected PutChunkResponse newResponseInstance() {
         return new PutChunkResponse();
+    }
+
+
+    @Override
+    protected ClusterBlockLevel globalBlockLevel() {
+        return ClusterBlockLevel.WRITE;
+    }
+
+    @Override
+    protected ClusterBlockLevel indexBlockLevel() {
+        return ClusterBlockLevel.WRITE;
     }
 
     @Override
